@@ -1,0 +1,21 @@
+# Byte-compiled
+__pycache__/
+
+# Environment
+.vscode/
+reference/
+venv/
+env/
+*workspace
+
+# Test
+data/
+downloads/
+CRC.log
+
+# Distribution
+build/
+dist/
+Output/
+*.iss
+*.rc
