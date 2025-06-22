@@ -11,12 +11,13 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QSizePolicy,
 )
-from PyQt6.QtCore import QThread, QTimer, Qt
+from PyQt6.QtCore import QThread, QTimer, Qt, pyqtSignal
 from PyQt6.QtGui import QPixmap
 from streamlink import Streamlink
 from streamlink.plugins.soop import SoopHLSStream, Soop
 import requests
-from src.util import resource_path
+from .util import resource_path, get_unique_filename
+from .logwriter import LogWriter
 
 PLAYER_LIVE_API = "https://live.sooplive.co.kr/afreeca/player_live_api.php"
 
@@ -51,26 +52,27 @@ class StreamerWidget(QWidget):
         self,
         bjid,
         session: Streamlink,
-        interval=10,
-        auth_dict: dict[str, str] = {},
-        output_dir="./Records",
+        logwriter: LogWriter,
+        config: dict[str, str] = {},
     ):
         super().__init__()
         self.bjid = bjid
-        self.output_dir = output_dir
         self.session = session
         self.prev_rescode = OFFLINE
         self.download_thread = None
         self.ui_init()
+        self.logwriter = logwriter
 
         self.option = {
             "afreeca-purge-credentials": True,
         }
-        if auth_dict.get("username"):
-            self.option["username"] = auth_dict["username"]
-        if auth_dict.get("password"):
-            self.option["password"] = auth_dict["password"]
+        if username := config.get("user_name"):
+            self.option["username"] = username
+        if password := config.get("user_password"):
+            self.option["password"] = password
+        self.output_dir = config.get("rec_location", "./Records")
 
+        interval = int(config.get("refresh_sec", 10))
         self.timer = QTimer()
         self.timer.setInterval(interval * 1000)
         self.timer.timeout.connect(self.check)
@@ -131,7 +133,13 @@ class StreamerWidget(QWidget):
                 "type": "live",
             },
         )
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except:
+            self.logwriter.error(
+                f"Failed to check live status for {self.bjid}: {response.status_code}"
+            )
+            return
 
         chn: dict = response.json().get("CHANNEL", {})
         bjnick = chn.get("BJNICK", "")
@@ -152,12 +160,13 @@ class StreamerWidget(QWidget):
 
         self._update_lamp(status)
         if status == LiveStatus.BANGON and not self.download_thread:
-            self._start_download(
-                output_path=os.path.join(
+            path = get_unique_filename(
+                os.path.join(
                     self.output_dir,
                     f"[{bjnick}({self.bjid})][{time.strftime('%Y%m%d')}]{title}.ts",
                 )
             )
+            self._start_download(output_path=path)
         elif status == LiveStatus.BANGJONG:
             self._stop_download()
 
@@ -175,7 +184,8 @@ class StreamerWidget(QWidget):
         self.status_lamp.update()
 
     def _start_download(self, output_path):
-        print("Starting download...")
+        self.logwriter.info(f"Starting download: {self.bjid}")
+        self.logwriter.info(f"Output path: {output_path}")
         quality = self.quality_spinbox.currentText()
         if self.password_input.text() and self.password_input.text().strip() != "":
             self.option["stream-password"] = self.password_input.text().strip()
@@ -191,16 +201,22 @@ class StreamerWidget(QWidget):
 
         target_stream: SoopHLSStream | None = streams.get(quality, None)
         if not target_stream:
-            print("no target")
-            return
+            self.logwriter.warning(
+                "Target Stream Not Found; using 'best' quality instead."
+            )
+            self.target_stream = streams.get("best", None)
 
         self.download_thread = download_thread(
             stream=target_stream, output_path=output_path
         )
         self.download_thread.start()
+        self.download_thread.finished_sig.connect(
+            lambda: self.logwriter.info(f"Stream Ended for {self.bjid}")
+        )
 
     def _stop_download(self):
         if hasattr(self, "download_thread") and self.download_thread.isRunning():
+            self.logwriter.info(f"Stopping download: {self.bjid}")
             self.download_thread.cleanup()
             self.download_thread.wait()
             del self.download_thread
@@ -208,6 +224,7 @@ class StreamerWidget(QWidget):
 
 class download_thread(QThread):
     power = True
+    finished_sig = pyqtSignal()
 
     def __init__(self, stream: SoopHLSStream, output_path="output.ts"):
         super().__init__()
@@ -220,13 +237,15 @@ class download_thread(QThread):
         if not os.path.exists(os.path.dirname(self.output_path)):
             os.makedirs(os.path.dirname(self.output_path))
         with open(self.output_path, "wb") as f:
-            while self.power:
+            while True:
+                if not self.power and not streamreader.closed:
+                    streamreader.close()
                 bytes = streamreader.read(8192)  # Read 8KB at a time
                 if not bytes:
+                    self.finished_sig.emit()
                     break
                 f.write(bytes)
 
     def cleanup(self):
-        print("Stopping download...")
-        time.sleep(0.5)
         self.power = False
+        time.sleep(0.5)

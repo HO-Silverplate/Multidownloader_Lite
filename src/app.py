@@ -1,21 +1,37 @@
+import json
+import os
 from .entry_widget import EntryWidget
 from .streamer_widget import StreamerWidget
+from .logwriter import LogWriter
 from PyQt6.QtWidgets import *
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QTextOption
 from streamlink import Streamlink
 
+CONFIG_FILE = "config.json"
+
 
 class App(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("PyQt6 Example")
+        self.setWindowTitle("Multidownloader Lite")
         self.setMinimumHeight(500)
         self.setMinimumWidth(400)
 
         self.streamlinkSession = Streamlink()
-        self.ui_init()
         self.bj_list = []
+
+        self.config = self.read_options()
+        self.logwriter = LogWriter()
+        self.ui_init()
+
+        self.logwriter.info("Application started.")
+        self.logwriter.info(
+            f"Path Set to : {self.config.get('rec_location', './Records')}"
+        )
+        self.logwriter.info(
+            f"Interval Set to : {self.config.get('refresh_sec', 10)} seconds"
+        )
 
     def ui_init(self):
         self.vl = QVBoxLayout(self)
@@ -40,6 +56,7 @@ class App(QWidget):
         self.log_window.setReadOnly(True)
         self.log_window.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
         self.log_window.setWordWrapMode(QTextOption.WrapMode.WrapAnywhere)
+        self.logwriter.msg_sig.connect(self.log_window.append)
 
         self.vl.addWidget(self.scroll_area)
         self.vl.addWidget(self.log_window)
@@ -48,17 +65,33 @@ class App(QWidget):
     def add_new_streamer(self, bjid: str):
         if not bjid or bjid in self.bj_list:
             return
-
-        self.bj_list.append(bjid)
-        widget = StreamerWidget(
-            bjid,
-            self.streamlinkSession,
-        )
-        self.scroll_layout.addWidget(widget)
-        widget.removeButton.clicked.connect(lambda: self.remove_streamer(widget))
-        print(widget)
+        try:
+            self.bj_list.append(bjid)
+            widget = StreamerWidget(
+                bjid, self.streamlinkSession, self.logwriter, self.config
+            )
+            self.scroll_layout.addWidget(widget)
+            widget.removeButton.clicked.connect(lambda: self.remove_streamer(widget))
+        except Exception as e:
+            self.logwriter.error(f"Error adding new streamer widget: {e}")
+            return
 
     def remove_streamer(self, widget: StreamerWidget):
-        self.bj_list.remove(widget.bjid)
-        self.scroll_layout.removeWidget(widget)
-        widget.deleteLater()
+        try:
+            self.bj_list.remove(widget.bjid)
+            self.scroll_layout.removeWidget(widget)
+            widget.deleteLater()
+        except Exception as e:
+            self.logwriter.error(f"Error removing streamer widget: {e}")
+
+    def read_options(self) -> dict:
+        try:
+            if os.path.exists(CONFIG_FILE):
+                with open(CONFIG_FILE, "r") as f:
+                    config = json.load(f)
+                    return config
+            else:
+                return {}
+        except Exception as e:
+            self.logwriter.error(f"Error reading config file: {e}")
+            return {}
