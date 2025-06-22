@@ -220,9 +220,7 @@ class StreamerWidget(QWidget):
                 and self.download_thread.isRunning()
             ):
                 self.logwriter.info(f"Stopping download: {self.bjid}")
-                self.download_thread.cleanup()
-                self.download_thread.wait()
-                del self.download_thread
+                self.download_thread.cleanup_sig.emit()
         except Exception as e:
             self.logwriter.error(f"Error stopping download for {self.bjid}: {e}")
 
@@ -230,11 +228,13 @@ class StreamerWidget(QWidget):
 class download_thread(QThread):
     power = True
     finished_sig = pyqtSignal()
+    cleanup_sig = pyqtSignal()
 
     def __init__(self, stream: SoopHLSStream, output_path="output.ts"):
         super().__init__()
         self.stream = stream
         self.output_path = output_path
+        self.cleanup_sig.connect(self.cleanup)
 
     def run(self):
         self.power = True
