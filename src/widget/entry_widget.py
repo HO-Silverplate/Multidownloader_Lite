@@ -14,6 +14,7 @@ class EntryWidget(QWidget):
         self.lineedit = QLineEdit()
         self.lineedit.setPlaceholderText("Streamer ID")
         self.lineedit.setClearButtonEnabled(True)
+        self.lineedit.returnPressed.connect(self.add)
         self.addButton = QPushButton("Add")
         self.addButton.clicked.connect(self.add)
 
