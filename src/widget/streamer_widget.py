@@ -213,11 +213,18 @@ class StreamerWidget(QWidget):
         )
 
     def _stop_download(self):
-        if hasattr(self, "download_thread") and self.download_thread.isRunning():
-            self.logwriter.info(f"Stopping download: {self.bjid}")
-            self.download_thread.cleanup()
-            self.download_thread.wait()
-            del self.download_thread
+        try:
+            if (
+                hasattr(self, "download_thread")
+                and self.download_thread
+                and self.download_thread.isRunning()
+            ):
+                self.logwriter.info(f"Stopping download: {self.bjid}")
+                self.download_thread.cleanup()
+                self.download_thread.wait()
+                del self.download_thread
+        except Exception as e:
+            self.logwriter.error(f"Error stopping download for {self.bjid}: {e}")
 
 
 class download_thread(QThread):
