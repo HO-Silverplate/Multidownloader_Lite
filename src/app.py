@@ -1,11 +1,12 @@
 import json
 import os
-from widget import EntryWidget, StreamerWidget
-from util import LogWriter
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QScrollArea, QTextEdit, QSizePolicy
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QTextOption
 from streamlink import Streamlink
+
+from .util import LogWriter
+from .widget import EntryWidget, StreamerWidget
 
 CONFIG_FILE = "config.json"
 
