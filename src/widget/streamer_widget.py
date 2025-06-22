@@ -84,7 +84,7 @@ class StreamerWidget(QWidget):
 
         self.setStyleSheet(
             """
-            #streamer_widget {background-color: white; border-bottom: 1px solid #E0E0E0}
+            #streamer_widget { border-bottom: 1px solid lightgray}
             """
         )
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
