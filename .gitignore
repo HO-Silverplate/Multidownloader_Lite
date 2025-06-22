@@ -10,6 +10,7 @@ env/
 
 # Test
 Records/
+*.json
 *.ts
 
 # Distribution
