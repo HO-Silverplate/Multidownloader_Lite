@@ -1,9 +1,8 @@
 import json
 import os
-from .entry_widget import EntryWidget
-from .streamer_widget import StreamerWidget
-from .logwriter import LogWriter
-from PyQt6.QtWidgets import *
+from widget import EntryWidget, StreamerWidget
+from util import LogWriter
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QScrollArea, QTextEdit, QSizePolicy
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QTextOption
 from streamlink import Streamlink

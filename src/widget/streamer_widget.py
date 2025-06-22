@@ -6,7 +6,6 @@ from PyQt6.QtWidgets import (
     QLabel,
     QPushButton,
     QWidget,
-    QFrame,
     QLineEdit,
     QComboBox,
     QSizePolicy,
@@ -16,8 +15,7 @@ from PyQt6.QtGui import QPixmap
 from streamlink import Streamlink
 from streamlink.plugins.soop import SoopHLSStream, Soop
 import requests
-from .util import resource_path, get_unique_filename
-from .logwriter import LogWriter
+from util import LogWriter, resource_path, get_unique_filename
 
 PLAYER_LIVE_API = "https://live.sooplive.co.kr/afreeca/player_live_api.php"
 
