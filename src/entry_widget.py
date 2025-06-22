@@ -23,4 +23,5 @@ class EntryWidget(QWidget):
     def add(self):
         bjid = self.lineedit.text().strip()
         self.lineedit.clear()
+        self.lineedit.setFocus()
         self.add_signal.emit(bjid)
