@@ -9,9 +9,8 @@ env/
 *workspace
 
 # Test
-data/
-downloads/
-CRC.log
+Records/
+*.ts
 
 # Distribution
 build/
