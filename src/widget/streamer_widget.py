@@ -70,12 +70,13 @@ class StreamerWidget(QWidget):
             self.option["password"] = password
         self.output_dir = config.get("rec_location", "./Records")
 
+        requestSession = requests.Session()
         interval = int(config.get("refresh_sec", 10))
         self.timer = QTimer()
         self.timer.setInterval(interval * 1000)
-        self.timer.timeout.connect(self.check)
+        self.timer.timeout.connect(lambda: self.check(requestSession))
         self.timer.start()
-        self.check()
+        self.check(requestSession)
 
     def ui_init(self):
         self.setAttribute(Qt.WidgetAttribute.WA_StyleSheetTarget, True)
@@ -122,8 +123,8 @@ class StreamerWidget(QWidget):
         self.hl.addWidget(self.quality_spinbox)
         self.hl.addWidget(self.removeButton)
 
-    def check(self):
-        response = requests.post(
+    def check(self, session: requests.Session):
+        response = session.post(
             PLAYER_LIVE_API,
             data={
                 **API_DATA_COMMON,
@@ -146,8 +147,7 @@ class StreamerWidget(QWidget):
 
         if rescode == AUTH_FAIL or rescode == ERROR:  # 로그인 필요
             status = LiveStatus.LOGIN_REQUIRED
-
-        if self.prev_rescode == OFFLINE and rescode != OFFLINE:  # 뱅온
+        elif self.prev_rescode == OFFLINE and rescode != OFFLINE:  # 뱅온
             status = LiveStatus.BANGON
         elif self.prev_rescode != OFFLINE and rescode == OFFLINE:  # 뱅종
             status = LiveStatus.BANGJONG
