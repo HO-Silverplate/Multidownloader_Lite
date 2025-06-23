@@ -248,7 +248,6 @@ class StreamerWidget(QWidget):
         s = int(elapsed_time % 60)
         elapsed_time_str = f"{h:02}:{m:02}:{s:02}"
         tot_bytes_str = parse_byte_size(self.download_thread.total_bytes)
-        print(f"Elapsed Time: {elapsed_time_str}, Total Bytes: {tot_bytes_str}")
         self.progress_label.setText(f"{elapsed_time_str}\n{tot_bytes_str}")
 
 
