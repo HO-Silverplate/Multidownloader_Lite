@@ -15,11 +15,11 @@ class App(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Multidownloader Lite")
-        self.setMinimumHeight(500)
+        self.setMinimumHeight(504)
         self.setMinimumWidth(400)
 
         self.streamlinkSession = Streamlink()
-        self.bj_list = []
+        self.bj_dict: dict[str, StreamerWidget] = {}
 
         self.config = self.read_options()
         self.logwriter = LogWriter()
@@ -32,6 +32,9 @@ class App(QWidget):
         self.logwriter.info(
             f"Interval Set to : {self.config.get('refresh_sec', 10)} seconds"
         )
+        if strms := self.config.get("streamers"):
+            for bjid in strms:
+                self.add_new_streamer(bjid)
 
     def ui_init(self):
         self.vl = QVBoxLayout(self)
@@ -63,24 +66,26 @@ class App(QWidget):
         self.vl.addWidget(self.entry_widget)
 
     def add_new_streamer(self, bjid: str):
-        if not bjid or bjid in self.bj_list:
+        if not bjid or bjid in self.bj_dict.keys():
             return
         try:
-            self.bj_list.append(bjid)
             widget = StreamerWidget(
                 bjid, self.streamlinkSession, self.logwriter, self.config
             )
+            self.bj_dict[bjid] = widget
             self.scroll_layout.addWidget(widget)
-            widget.removeButton.clicked.connect(lambda: self.remove_streamer(widget))
+            widget.removeButton.clicked.connect(lambda: self.remove_streamer(bjid))
+
         except Exception as e:
             self.logwriter.error(f"Error adding new streamer widget: {e}")
             return
 
-    def remove_streamer(self, widget: StreamerWidget):
+    def remove_streamer(self, bjid: str):
         try:
-            self.bj_list.remove(widget.bjid)
+            widget = self.bj_dict.pop(bjid)
             self.scroll_layout.removeWidget(widget)
             widget.deleteLater()
+            widget.timer.stop()
         except Exception as e:
             self.logwriter.error(f"Error removing streamer widget: {e}")
 
@@ -95,3 +100,8 @@ class App(QWidget):
         except Exception as e:
             self.logwriter.error(f"Error reading config file: {e}")
             return {}
+
+    def closeEvent(self, event):
+        for _ in range(self.bj_dict.__len__()):
+            self.remove_streamer(list(self.bj_dict.keys())[0])
+        super().closeEvent(event)

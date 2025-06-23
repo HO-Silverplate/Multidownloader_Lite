@@ -15,7 +15,7 @@ from PyQt6.QtGui import QPixmap
 from streamlink import Streamlink
 from streamlink.plugins.soop import SoopHLSStream, Soop
 import requests
-from src.util import LogWriter, resource_path, get_unique_filename
+from src.util import LogWriter, resource_path, get_unique_filename, parse_byte_size
 
 PLAYER_LIVE_API = "https://live.sooplive.co.kr/afreeca/player_live_api.php"
 
@@ -58,7 +58,6 @@ class StreamerWidget(QWidget):
         self.session = session
         self.prev_rescode = OFFLINE
         self.download_thread = None
-        self.ui_init()
         self.logwriter = logwriter
 
         self.option = {
@@ -70,16 +69,23 @@ class StreamerWidget(QWidget):
             self.option["password"] = password
         self.output_dir = config.get("rec_location", "./Records")
 
+        requestSession = requests.Session()
         interval = int(config.get("refresh_sec", 10))
         self.timer = QTimer()
         self.timer.setInterval(interval * 1000)
-        self.timer.timeout.connect(self.check)
+        self.timer.timeout.connect(lambda: self.check(requestSession))
         self.timer.start()
-        self.check()
+
+        self.progress_timer = QTimer()
+        self.progress_timer.setInterval(1000)
+        self.progress_timer.timeout.connect(self.update_progress)
+        self.ui_init()
+        self.check(requestSession)
 
     def ui_init(self):
         self.setAttribute(Qt.WidgetAttribute.WA_StyleSheetTarget, True)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setContentsMargins(8, 0, 8, 0)
         self.setObjectName("streamer_widget")
 
         self.setStyleSheet(
@@ -88,6 +94,7 @@ class StreamerWidget(QWidget):
             """
         )
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.setMinimumHeight(42)
         self.status_lamp = QLabel()
         self.status_lamp.setFixedSize(8, 8)
         self.status_lamp.setContentsMargins(0, 0, 0, 0)
@@ -96,6 +103,11 @@ class StreamerWidget(QWidget):
         )
 
         self.bjid_label = QLabel(self.bjid)
+        self.progress_label = QLabel()
+        self.progress_label.setStyleSheet("color: red; font-size: 8pt;")
+        self.progress_label.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
         self.password_input = QLineEdit()
         self.password_input.setClearButtonEnabled(True)
         self.password_input.setPlaceholderText("방송 비밀번호")
@@ -115,15 +127,17 @@ class StreamerWidget(QWidget):
         self.removeButton.clicked.connect(self._stop_download)
 
         self.hl = QHBoxLayout(self)
+        self.hl.setContentsMargins(4, 2, 4, 2)
         self.hl.addWidget(self.status_lamp)
         self.hl.addWidget(self.bjid_label)
         self.hl.addStretch(1)
+        self.hl.addWidget(self.progress_label)
         self.hl.addWidget(self.password_input)
         self.hl.addWidget(self.quality_spinbox)
         self.hl.addWidget(self.removeButton)
 
-    def check(self):
-        response = requests.post(
+    def check(self, session: requests.Session):
+        response = session.post(
             PLAYER_LIVE_API,
             data={
                 **API_DATA_COMMON,
@@ -146,8 +160,7 @@ class StreamerWidget(QWidget):
 
         if rescode == AUTH_FAIL or rescode == ERROR:  # 로그인 필요
             status = LiveStatus.LOGIN_REQUIRED
-
-        if self.prev_rescode == OFFLINE and rescode != OFFLINE:  # 뱅온
+        elif self.prev_rescode == OFFLINE and rescode != OFFLINE:  # 뱅온
             status = LiveStatus.BANGON
         elif self.prev_rescode != OFFLINE and rescode == OFFLINE:  # 뱅종
             status = LiveStatus.BANGJONG
@@ -161,7 +174,8 @@ class StreamerWidget(QWidget):
             path = get_unique_filename(
                 os.path.join(
                     self.output_dir,
-                    f"[{bjnick}({self.bjid})][{time.strftime('%Y%m%d')}]{title}.ts",
+                    bjnick,
+                    f"[{time.strftime('%Y%m%d')}]{title}.ts",
                 )
             )
             self._start_download(output_path=path)
@@ -211,6 +225,7 @@ class StreamerWidget(QWidget):
         self.download_thread.finished_sig.connect(
             lambda: self.logwriter.info(f"Stream Ended for {self.bjid}")
         )
+        self.progress_timer.start()
 
     def _stop_download(self):
         try:
@@ -221,8 +236,19 @@ class StreamerWidget(QWidget):
             ):
                 self.logwriter.info(f"Stopping download: {self.bjid}")
                 self.download_thread.cleanup_sig.emit()
+                self.progress_timer.stop()
+                self.progress_label.clear()
         except Exception as e:
             self.logwriter.error(f"Error stopping download for {self.bjid}: {e}")
+
+    def update_progress(self):
+        elapsed_time = time.time() - self.download_thread.init_time
+        h = int(elapsed_time // 3600)
+        m = int((elapsed_time % 3600) // 60)
+        s = int(elapsed_time % 60)
+        elapsed_time_str = f"{h:02}:{m:02}:{s:02}"
+        tot_bytes_str = parse_byte_size(self.download_thread.total_bytes)
+        self.progress_label.setText(f"{elapsed_time_str}\n{tot_bytes_str}")
 
 
 class download_thread(QThread):
@@ -235,8 +261,11 @@ class download_thread(QThread):
         self.stream = stream
         self.output_path = output_path
         self.cleanup_sig.connect(self.cleanup)
+        self.total_bytes = 0
+        self.init_time = 0
 
     def run(self):
+        self.init_time = time.time()
         self.power = True
         streamreader = self.stream.open()
         if not os.path.exists(os.path.dirname(self.output_path)):
@@ -250,6 +279,7 @@ class download_thread(QThread):
                     self.finished_sig.emit()
                     break
                 f.write(bytes)
+                self.total_bytes += len(bytes)
 
     def cleanup(self):
         self.power = False
