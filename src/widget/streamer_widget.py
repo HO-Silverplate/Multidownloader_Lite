@@ -161,7 +161,8 @@ class StreamerWidget(QWidget):
             path = get_unique_filename(
                 os.path.join(
                     self.output_dir,
-                    f"[{bjnick}({self.bjid})][{time.strftime('%Y%m%d')}]{title}.ts",
+                    bjnick,
+                    f"[{time.strftime('%Y%m%d')}]{title}.ts",
                 )
             )
             self._start_download(output_path=path)
