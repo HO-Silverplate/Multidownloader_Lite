@@ -6,7 +6,6 @@
 ### 설정파일 샘플
 
 ```json
-// config.json
 {
     "user_name": "",
     "user_password": "",
