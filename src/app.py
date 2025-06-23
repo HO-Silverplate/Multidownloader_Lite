@@ -15,7 +15,7 @@ class App(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Multidownloader Lite")
-        self.setMinimumHeight(500)
+        self.setMinimumHeight(504)
         self.setMinimumWidth(400)
 
         self.streamlinkSession = Streamlink()
@@ -81,6 +81,7 @@ class App(QWidget):
             self.bj_list.remove(widget.bjid)
             self.scroll_layout.removeWidget(widget)
             widget.deleteLater()
+            widget.timer.stop()
         except Exception as e:
             self.logwriter.error(f"Error removing streamer widget: {e}")
 
