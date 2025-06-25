@@ -3,12 +3,14 @@ import os
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QScrollArea, QTextEdit, QSizePolicy
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QTextOption
+import requests
 from streamlink import Streamlink
 
 from .util import LogWriter
 from .widget import EntryWidget, StreamerWidget
 
 CONFIG_FILE = "config.json"
+LOGIN_URL = "https://login.sooplive.co.kr/app/LoginAction.php"
 
 
 class App(QWidget):
@@ -21,10 +23,15 @@ class App(QWidget):
         self.streamlinkSession = Streamlink()
         self.bj_dict: dict[str, StreamerWidget] = {}
 
-        self.config = self.read_options()
         self.logwriter = LogWriter()
         self.ui_init()
 
+        self.requestSession = requests.Session()
+        self.config = self.read_options()
+        self.login_to_soop(
+            self.config.get("username", ""),
+            self.config.get("password", ""),
+        )
         self.logwriter.info("Application started.")
         self.logwriter.info(
             f"Path Set to : {self.config.get('rec_location', './Records')}"
@@ -70,7 +77,11 @@ class App(QWidget):
             return
         try:
             widget = StreamerWidget(
-                bjid, self.streamlinkSession, self.logwriter, self.config
+                bjid,
+                self.streamlinkSession,
+                self.requestSession,
+                self.logwriter,
+                self.config,
             )
             self.bj_dict[bjid] = widget
             self.scroll_layout.addWidget(widget)
@@ -92,8 +103,8 @@ class App(QWidget):
     def read_options(self) -> dict:
         try:
             if os.path.exists(CONFIG_FILE):
-                with open(CONFIG_FILE, "r") as f:
-                    config = json.load(f)
+                with open(CONFIG_FILE, "rb") as f:
+                    config = json.loads(f.read().decode("utf-8"))
                     return config
             else:
                 return {}
@@ -105,3 +116,22 @@ class App(QWidget):
         for _ in range(self.bj_dict.__len__()):
             self.remove_streamer(list(self.bj_dict.keys())[0])
         super().closeEvent(event)
+
+    def login_to_soop(self, username, password):
+        try:
+            self.requestSession.post(
+                LOGIN_URL,
+                data={
+                    "szWork": "login",
+                    "szType": "json",
+                    "szUid": username,
+                    "szPassword": password,
+                    "szScriptVar": "oLoginRet",
+                    "isSaveId": "false",
+                    "isSavePw": "false",
+                    "isSaveJoin": "false",
+                    "isLoginRetain": "false",
+                },
+            ).raise_for_status()
+        except:
+            return

@@ -50,6 +50,7 @@ class StreamerWidget(QWidget):
         self,
         bjid,
         session: Streamlink,
+        requestSession: requests.Session,
         logwriter: LogWriter,
         config: dict[str, str] = {},
     ):
@@ -69,7 +70,6 @@ class StreamerWidget(QWidget):
             self.option["password"] = password
         self.output_dir = config.get("rec_location", "./Records")
 
-        requestSession = requests.Session()
         interval = int(config.get("refresh_sec", 10))
         self.timer = QTimer()
         self.timer.setInterval(interval * 1000)
