@@ -1,7 +1,7 @@
 다중녹화기 LITE
 ==============
 
-## 간단하지만 할 일은 합니다.
+간단하지만 할 일은 합니다.
 
 ### 설정파일 샘플
 
@@ -10,6 +10,7 @@
     "user_name": "",
     "user_password": "",
     "refresh_sec": 10,
+    "rec_location": "./Records",
     "streamers": [
         "ecvhao",
         "inehine",
