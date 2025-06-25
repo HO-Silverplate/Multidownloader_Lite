@@ -50,6 +50,7 @@ class StreamerWidget(QWidget):
         self,
         bjid,
         session: Streamlink,
+        requestSession: requests.Session,
         logwriter: LogWriter,
         config: dict[str, str] = {},
     ):
@@ -69,7 +70,6 @@ class StreamerWidget(QWidget):
             self.option["password"] = password
         self.output_dir = config.get("rec_location", "./Records")
 
-        requestSession = requests.Session()
         interval = int(config.get("refresh_sec", 10))
         self.timer = QTimer()
         self.timer.setInterval(interval * 1000)
@@ -137,29 +137,37 @@ class StreamerWidget(QWidget):
         self.hl.addWidget(self.removeButton)
 
     def check(self, session: requests.Session):
-        response = session.post(
-            PLAYER_LIVE_API,
-            data={
-                **API_DATA_COMMON,
-                "bid": self.bjid,
-                "type": "live",
-            },
-        )
         try:
-            response.raise_for_status()
-        except:
-            self.logwriter.error(
-                f"Failed to check live status for {self.bjid}: {response.status_code}"
+            response = session.post(
+                PLAYER_LIVE_API,
+                data={
+                    **API_DATA_COMMON,
+                    "bid": self.bjid,
+                    "type": "live",
+                },
             )
-            return
+            try:
+                response.raise_for_status()
+            except:
+                self.logwriter.error(
+                    f"Failed to check live status for {self.bjid}: {response.status_code}"
+                )
+                return
+        except:
+            pass
 
-        chn: dict = response.json().get("CHANNEL", {})
+        try:
+            chn: dict = response.json().get("CHANNEL", {})
+        except:
+            chn = {}
         bjnick = chn.get("BJNICK", "")
         title = chn.get("TITLE", "")
         rescode = chn.get("RESULT", ERROR)
 
-        if rescode == AUTH_FAIL or rescode == ERROR:  # 로그인 필요
+        if rescode == AUTH_FAIL:  # 로그인 필요
             status = LiveStatus.LOGIN_REQUIRED
+        elif rescode == ERROR:  # 에러
+            status = LiveStatus.ERROR
         elif self.prev_rescode == OFFLINE and rescode != OFFLINE:  # 뱅온
             status = LiveStatus.BANGON
         elif self.prev_rescode != OFFLINE and rescode == OFFLINE:  # 뱅종
