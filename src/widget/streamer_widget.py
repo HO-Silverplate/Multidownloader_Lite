@@ -176,6 +176,7 @@ class StreamerWidget(QWidget):
             status = LiveStatus.LIVE
         else:  # 방송 없음 지속
             status = LiveStatus.NOT_LIVE
+        self.prev_rescode = rescode
 
         self._update_lamp(status)
         if status == LiveStatus.BANGON and not self.download_thread:
