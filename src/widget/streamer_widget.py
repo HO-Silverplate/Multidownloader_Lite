@@ -191,7 +191,7 @@ class StreamerWidget(QWidget):
                 )
             ).replace("/", "\\")
             self._start_download(output_path=path)
-        elif status == LiveStatus.BANGJONG:
+        if status == LiveStatus.BANGJONG:
             self._stop_download()
 
     def _update_lamp(self, status: LiveStatus):
@@ -238,22 +238,20 @@ class StreamerWidget(QWidget):
             stream=target_stream, output_path=output_path
         )
         self.download_thread.start()
-        self.download_thread.finished_sig.connect(
-            lambda: self.logwriter.info(f"Stream Ended for {self.bjid}")
-        )
         self.progress_timer.start()
 
     def _stop_download(self):
         try:
+            self.progress_timer.stop()
+            self.progress_label.clear()
+            self.logwriter.info(f"Stopping download: {self.bjid}")
             if (
                 hasattr(self, "download_thread")
                 and self.download_thread
                 and self.download_thread.isRunning()
             ):
-                self.logwriter.info(f"Stopping download: {self.bjid}")
                 self.download_thread.cleanup_sig.emit()
-                self.progress_timer.stop()
-                self.progress_label.clear()
+                self.download_thread = None
         except Exception as e:
             self.logwriter.error(f"Error stopping download for {self.bjid}: {e}")
 
@@ -269,7 +267,6 @@ class StreamerWidget(QWidget):
 
 class download_thread(QThread):
     power = True
-    finished_sig = pyqtSignal()
     cleanup_sig = pyqtSignal()
 
     def __init__(self, stream: SoopHLSStream, output_path="output.ts"):
@@ -292,8 +289,8 @@ class download_thread(QThread):
                     streamreader.close()
                 bytes = streamreader.read(8192)  # Read 8KB at a time
                 if not bytes:
-                    self.finished_sig.emit()
-                    break
+                    time.sleep(0.1)
+                    continue
                 f.write(bytes)
                 self.total_bytes += len(bytes)
 
