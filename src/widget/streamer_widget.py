@@ -238,9 +238,6 @@ class StreamerWidget(QWidget):
             stream=target_stream, output_path=output_path
         )
         self.download_thread.start()
-        self.download_thread.finished_sig.connect(
-            lambda: self.logwriter.info(f"Stream Ended for {self.bjid}")
-        )
         self.progress_timer.start()
 
     def _stop_download(self):
@@ -270,7 +267,6 @@ class StreamerWidget(QWidget):
 
 class download_thread(QThread):
     power = True
-    finished_sig = pyqtSignal()
     cleanup_sig = pyqtSignal()
 
     def __init__(self, stream: SoopHLSStream, output_path="output.ts"):
@@ -293,8 +289,8 @@ class download_thread(QThread):
                     streamreader.close()
                 bytes = streamreader.read(8192)  # Read 8KB at a time
                 if not bytes:
-                    self.finished_sig.emit()
-                    break
+                    time.sleep(0.1)
+                    continue
                 f.write(bytes)
                 self.total_bytes += len(bytes)
 
