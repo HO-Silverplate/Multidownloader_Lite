@@ -245,6 +245,8 @@ class StreamerWidget(QWidget):
 
     def _stop_download(self):
         try:
+            self.progress_timer.stop()
+            self.progress_label.clear()
             if (
                 hasattr(self, "download_thread")
                 and self.download_thread
@@ -252,8 +254,7 @@ class StreamerWidget(QWidget):
             ):
                 self.logwriter.info(f"Stopping download: {self.bjid}")
                 self.download_thread.cleanup_sig.emit()
-                self.progress_timer.stop()
-                self.progress_label.clear()
+                self.download_thread = None
         except Exception as e:
             self.logwriter.error(f"Error stopping download for {self.bjid}: {e}")
 
