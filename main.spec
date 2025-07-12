@@ -22,7 +22,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='Multidownloader Lite',
+    name='Multidownloader_Lite',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
