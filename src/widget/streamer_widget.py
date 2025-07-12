@@ -1,5 +1,6 @@
 from enum import Enum
 import os
+import re
 import time
 from PyQt6.QtWidgets import (
     QHBoxLayout,
