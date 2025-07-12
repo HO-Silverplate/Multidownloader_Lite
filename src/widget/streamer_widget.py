@@ -184,9 +184,11 @@ class StreamerWidget(QWidget):
                 os.path.join(
                     self.output_dir,
                     bjnick,
-                    f"[{time.strftime('%Y%m%d')}]{title}.ts",
+                    re.sub(
+                        r'[\/:*?"<>|]', "", f"[{time.strftime('%Y%m%d')}]{title}.ts"
+                    ),
                 )
-            )
+            ).replace("/", "\\")
             self._start_download(output_path=path)
         elif status == LiveStatus.BANGJONG:
             self._stop_download()
