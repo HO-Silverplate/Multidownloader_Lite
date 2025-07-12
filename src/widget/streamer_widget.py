@@ -285,8 +285,10 @@ class download_thread(QThread):
             os.makedirs(os.path.dirname(self.output_path))
         with open(self.output_path, "wb") as f:
             while True:
-                if not self.power and not streamreader.closed:
-                    streamreader.close()
+                if not self.power:
+                    if not streamreader.closed:
+                        streamreader.close()
+                    break
                 bytes = streamreader.read(8192)  # Read 8KB at a time
                 if not bytes:
                     time.sleep(0.1)
