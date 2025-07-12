@@ -191,7 +191,7 @@ class StreamerWidget(QWidget):
                 )
             ).replace("/", "\\")
             self._start_download(output_path=path)
-        elif status == LiveStatus.BANGJONG:
+        if status == LiveStatus.BANGJONG:
             self._stop_download()
 
     def _update_lamp(self, status: LiveStatus):
@@ -247,12 +247,12 @@ class StreamerWidget(QWidget):
         try:
             self.progress_timer.stop()
             self.progress_label.clear()
+            self.logwriter.info(f"Stopping download: {self.bjid}")
             if (
                 hasattr(self, "download_thread")
                 and self.download_thread
                 and self.download_thread.isRunning()
             ):
-                self.logwriter.info(f"Stopping download: {self.bjid}")
                 self.download_thread.cleanup_sig.emit()
                 self.download_thread = None
         except Exception as e:
