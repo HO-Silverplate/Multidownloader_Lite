@@ -229,6 +229,10 @@ class StreamerWidget(QWidget):
             )
             self.target_stream = streams.get("best", None)
 
+        if not target_stream:
+            self.logwriter.error("No valid stream found for the given quality.")
+            return
+
         self.download_thread = download_thread(
             stream=target_stream, output_path=output_path
         )
