@@ -26,18 +26,19 @@ class App(QWidget):
         self.logwriter = LogWriter()
         self.ui_init()
 
-        self.requestSession = requests.Session()
-        self.config = self.read_options()
-        self.login_to_soop(
-            self.config.get("username", ""),
-            self.config.get("password", ""),
-        )
         self.logwriter.info("Application started.")
+        self.config = self.read_options()
         self.logwriter.info(
             f"Path Set to : {self.config.get('rec_location', './Records')}"
         )
         self.logwriter.info(
             f"Interval Set to : {self.config.get('refresh_sec', 10)} seconds"
+        )
+        self.requestSession = requests.Session()
+        self.requestSession = self.login_to_soop(
+            self.config.get("user_name", ""),
+            self.config.get("user_password", ""),
+            self.requestSession,
         )
         if strms := self.config.get("streamers"):
             for bjid in strms:
@@ -117,9 +118,11 @@ class App(QWidget):
             self.remove_streamer(list(self.bj_dict.keys())[0])
         super().closeEvent(event)
 
-    def login_to_soop(self, username, password):
+    def login_to_soop(
+        self, username: str, password: str, session: requests.Session
+    ) -> requests.Session:
         try:
-            self.requestSession.post(
+            response = session.post(
                 LOGIN_URL,
                 data={
                     "szWork": "login",
@@ -132,6 +135,13 @@ class App(QWidget):
                     "isSaveJoin": "false",
                     "isLoginRetain": "false",
                 },
-            ).raise_for_status()
+            )
+            response.raise_for_status()
+            if (rescode := response.json().get("RESULT", 1024)) != 1:
+                self.logwriter.error(f"Login failed - CODE: {rescode}")
+            else:
+                self.logwriter.info("Login successful")
         except:
-            return
+            self.logwriter.error(f"Login failed for {username}: {response.status_code}")
+        finally:
+            return session

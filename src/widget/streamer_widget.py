@@ -1,5 +1,6 @@
 from enum import Enum
 import os
+import re
 import time
 from PyQt6.QtWidgets import (
     QHBoxLayout,
@@ -176,6 +177,7 @@ class StreamerWidget(QWidget):
             status = LiveStatus.LIVE
         else:  # 방송 없음 지속
             status = LiveStatus.NOT_LIVE
+        self.prev_rescode = rescode
 
         self._update_lamp(status)
         if status == LiveStatus.BANGON and not self.download_thread:
@@ -183,9 +185,11 @@ class StreamerWidget(QWidget):
                 os.path.join(
                     self.output_dir,
                     bjnick,
-                    f"[{time.strftime('%Y%m%d')}]{title}.ts",
+                    re.sub(
+                        r'[\/:*?"<>|]', "", f"[{time.strftime('%Y%m%d')}]{title}.ts"
+                    ),
                 )
-            )
+            ).replace("/", "\\")
             self._start_download(output_path=path)
         elif status == LiveStatus.BANGJONG:
             self._stop_download()
@@ -225,6 +229,10 @@ class StreamerWidget(QWidget):
                 "Target Stream Not Found; using 'best' quality instead."
             )
             self.target_stream = streams.get("best", None)
+
+        if not target_stream:
+            self.logwriter.error("No valid stream found for the given quality.")
+            return
 
         self.download_thread = download_thread(
             stream=target_stream, output_path=output_path
